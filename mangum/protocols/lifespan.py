@@ -2,10 +2,10 @@ import asyncio
 import enum
 import logging
 from types import TracebackType
-from typing import Optional, Type, Any
+from typing import Any, Dict, Optional, Type
 
+from mangum.exceptions import LifespanFailure, LifespanUnsupported, UnexpectedMessage
 from mangum.types import ASGI, LifespanMode, Message
-from mangum.exceptions import LifespanUnsupported, LifespanFailure, UnexpectedMessage
 
 
 class LifespanCycleState(enum.Enum):
@@ -62,7 +62,7 @@ class LifespanCycle:
         self.startup_event: asyncio.Event = asyncio.Event()
         self.shutdown_event: asyncio.Event = asyncio.Event()
         self.logger = logging.getLogger("mangum.lifespan")
-        self.lifespan_state: dict[str, Any] = {}
+        self.lifespan_state: Dict[str, Any] = {}
 
     def __enter__(self) -> None:
         """Runs the event loop for application startup."""
@@ -82,7 +82,11 @@ class LifespanCycle:
         """Calls the application with the `lifespan` connection scope."""
         try:
             await self.app(
-                {"type": "lifespan", "asgi": {"spec_version": "2.0", "version": "3.0"}, "state": self.lifespan_state},
+                {
+                    "type": "lifespan",
+                    "asgi": {"spec_version": "2.0", "version": "3.0"},
+                    "state": self.lifespan_state,
+                },
                 self.receive,
                 self.send,
             )
@@ -99,14 +103,12 @@ class LifespanCycle:
     async def receive(self) -> Message:
         """Awaited by the application to receive ASGI `lifespan` events."""
         if self.state is LifespanCycleState.CONNECTING:
-
             # Connection established. The next event returned by the queue will be
             # `lifespan.startup` to inform the application that the connection is
             # ready to receive lfiespan messages.
             self.state = LifespanCycleState.STARTUP
 
         elif self.state is LifespanCycleState.STARTUP:
-
             # Connection shutting down. The next event returned by the queue will be
             # `lifespan.shutdown` to inform the application that the connection is now
             # closing so that it may perform cleanup.
