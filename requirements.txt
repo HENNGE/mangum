@@ -11,3 +11,4 @@ brotli
 brotli-asgi
 mkdocs
 mkdocs-material
+Hypercorn < 0.15.0 # to test python 3.7
